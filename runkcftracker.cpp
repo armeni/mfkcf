@@ -20,7 +20,7 @@ using namespace kcf;
 uint64_t calculateAverageHash(const cv::Mat& roi) {
     // Resize the ROI to a fixed size (e.g., 8x8) for simplicity
     cv::Mat resized;
-    cv::resize(roi, resized, cv::Size(12, 12));
+    cv::resize(roi, resized, cv::Size(16, 16));
 
     // Convert the resized image to grayscale
     cv::cvtColor(resized, resized, cv::COLOR_BGR2GRAY);
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
     KCFTracker kcftracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
 
     // MixFormerV2 tracker declaration (with .engine model)
-    std::string model_path = "/home/uavlab20/mfkcf/model/mixformer_v2_sim.engine";
+    std::string model_path = "/home/uavlab20/mfkcf/model/mixformer_v2.engine";
     MixformerTRT *Mixformerer;
     Mixformerer = new MixformerTRT(model_path);
 
@@ -84,6 +84,7 @@ int main(int argc, char **argv)
     // ofstream outputFile("differingBits.txt"); // output file for hash difference values 
     bool trackedMf = false;
     bool ok = true;
+    int totalFPS = 0;
     while(video.read(frame))
     {            
         DrOBB mf_bbox;  
@@ -157,7 +158,7 @@ int main(int argc, char **argv)
         
         // Display FPS on frame
         putText(frame, "FPS KCF: " + SSTR(int(fps)), Point(100,50), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(170,50,50), 2);
-
+        totalFPS += fps;
         // Display frame.
         imshow("Tracking", frame);
 
@@ -170,7 +171,10 @@ int main(int argc, char **argv)
         
         previous_frame_bbox = frame(bbox).clone();   
         frameNumber++;
+        if (frameNumber == 950){
+            std::cout << totalFPS / frameNumber << std::endl;
+        }
     }   
-
+    
     return 0;
 }

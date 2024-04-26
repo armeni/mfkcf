@@ -11,7 +11,7 @@ CXXFLAGS= -Wall $(shell pkg-config --cflags opencv4) -std=c++17 -lstdc++ -O3 -fP
 HEADERS = $(wildcard *.h) $(wildcard *.hpp)
 TARGET_LIB = libkcftracker.so
 OBJS = fhog.o kcftracker.o mixformer_trt.o
-LDFLAGS += -L/usr/local/cuda-12.0 -lcudart -lcuda -lnvinfer
+LDFLAGS += -L/usr/local/cuda-12.0 -lcudart -lcuda -lnvinfer -v
 
 ALL = track.bin $(TARGET_LIB)
 
