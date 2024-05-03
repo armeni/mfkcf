@@ -229,9 +229,8 @@ const DrOBB &MixformerTRT::track(const cv::Mat &img)
     cv::Mat x_patch;
     this->frame_id += 1;
     float resize_factor = 1.f;
-    
     this->sample_target(img, x_patch, this->state, this->cfg.search_factor, this->cfg.search_size, resize_factor);
-    
+
     // preprocess input tensor
     this->transform(this->z_patch, this->oz_patch, x_patch);
     
@@ -345,6 +344,10 @@ void MixformerTRT::sample_target(const cv::Mat &im, cv::Mat &croped, DrBBox targ
         output_sz - Size
 
     */
+    if (target_bb.x1 - target_bb.x0 == 0){
+        std::cout << "TRACKING FAILURE" << std::endl;
+        target_bb.x1++;
+    }
     int x = target_bb.x0;
     int y = target_bb.y0;
     int w = abs(target_bb.x1 - target_bb.x0);

@@ -94,7 +94,7 @@ namespace kcf
 KCFTracker::KCFTracker(bool hog, bool fixed_window, bool multiscale, bool lab, bool dsst)
 {
     // Parameters equal in all cases
-    detect_thresh_kcf = 0.13;
+    detect_thresh_kcf = 0.15;
     detect_thresh_dsst = 0.15;
     lambda = 0.0001;
     padding = 2.5;
@@ -141,8 +141,8 @@ KCFTracker::KCFTracker(bool hog, bool fixed_window, bool multiscale, bool lab, b
 
     if (multiscale)
     {                       // multiscale
-        template_size = 1; //100; // 96
-        scale_step = 1.05; // 1.05
+        template_size = 0; //100; // 96
+        scale_step = 1.1; // 1.05
         scale_weight = 0.95;
 
         // if (!fixed_window)
@@ -279,7 +279,7 @@ bool KCFTracker::update_kcf(const cv::Mat image, cv::Rect2d &roi)
             _roi.width = 2;
         if (_roi.height <= 0)
             _roi.height = 2;
-
+        
         assert(_roi.width >= 0 && _roi.height >= 0);
         train(getFeatures(image, 0), interp_factor);
         
@@ -288,6 +288,7 @@ bool KCFTracker::update_kcf(const cv::Mat image, cv::Rect2d &roi)
         roi.y = int(roi.y);
         roi.width = int(roi.width);
         roi.height = int(roi.height);
+
         return true;
     }
     else

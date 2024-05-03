@@ -19,13 +19,14 @@ namespace fs = std::filesystem;
 #define SSTR( x ) static_cast< std::ostringstream & >( \
 ( std::ostringstream() << std::dec << x ) ).str()
 
-uint64_t calculateAverageHash(const cv::Mat& roi) {
+// boost::multiprecision::uint512_t
+uint64_t calculateAverageHash(const cv::Mat& roi) { 
     // Resize the ROI to a fixed size (e.g., 8x8) for simplicity
     cv::Mat resized;
-    cv::resize(roi, resized, cv::Size(16, 16));
+    cv::Mat gray;
 
-    // Convert the resized image to grayscale
-    cv::cvtColor(resized, resized, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(roi, gray, cv::COLOR_BGR2GRAY);
+    cv::resize(gray, resized, cv::Size(8, 8));
 
     // Calculate the average pixel value
     int sum = 0;
@@ -60,7 +61,7 @@ int main(int argc, char **argv)
     std::string s;
     ifstream *groundtruth;
     ostringstream osfile;
-    std::string sequencesDir = "/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-test-dev/sequences/";
+    std::string sequencesDir = "/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-train-2/sequences/";
 
     for (const auto & entry : fs::directory_iterator(sequencesDir))
     {
@@ -68,7 +69,7 @@ int main(int argc, char **argv)
         std::vector<float> fps_values;
         string sequenceName = entry.path().stem().string();
         cout << "Sequence name: " << sequenceName << endl; 
-        groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-test-dev/annotations/" + sequenceName + ".txt");
+        groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-train-2/annotations/" + sequenceName + ".txt");
 
         frameNumber = 1;
         getline(*groundtruth, s, ',');
@@ -83,7 +84,6 @@ int main(int argc, char **argv)
         Rect2d bboxGroundtruth(x, y, w, h);
 
         cv::Mat frame = cv::imread(osfile.str().c_str(), IMREAD_UNCHANGED);
-        
         if (!frame.data)
         {
             cout << "Could not open or find the image" << std::endl;
@@ -93,8 +93,8 @@ int main(int argc, char **argv)
         rectangle(frame, bboxGroundtruth, Scalar(0, 0, 0), 2, 1);
 
         // KCF tracker declaration
-        bool HOG = true, FIXEDWINDOW = true, MULTISCALE = true, LAB = true, DSST = false;
-        KCFTracker kcftracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+        // bool HOG = true, FIXEDWINDOW = true, MULTISCALE = true, LAB = true, DSST = false;
+        // KCFTracker kcftracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
 
         // MixFormerV2 tracker declaration (with .engine model)
         std::string model_path = "/home/uavlab20/mfkcf/model/mixformer_v2_sim.engine";
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
         
         Rect2d bbox((int)bboxGroundtruth.x, (int)bboxGroundtruth.y, (int)bboxGroundtruth.width, (int)bboxGroundtruth.height);
         
-        string resultsDir = "/home/uavlab20/exp_mfkcf/mf_results_VisDrone/";
+        string resultsDir = "/home/uavlab20/exp_mfkcf/kcf_results_VisDrone_train-2/";
         string outputFilePath = resultsDir + sequenceName + ".txt";
 
         // Open output file for writing
@@ -116,19 +116,21 @@ int main(int argc, char **argv)
 
         bool trackerInitialized = false;
         
-        // Mat previous_frame_bbox = frame(bbox);
-        // Mat previous_frame = frame;
+        Mat previous_frame_bbox = frame(bbox);
+        Mat previous_frame = frame;
 
         // ofstream outputFile("differingBits.txt"); // output file for hash difference values 
         bool trackedMf = false;
         bool ok = true;
+        bool terminateEarly = false;
 
 
-        while(frame.data)
+        while(frame.data && !terminateEarly)
         {         
-            DrOBB mf_bbox;  
+            DrOBB mf_bbox;
+            
             if (!trackerInitialized) {
-                kcftracker.init(frame, bbox);
+                // kcftracker.init(frame, bbox);
                 trackerInitialized = true;
                 
                 mf_bbox.box.x0 = bbox.x;
@@ -138,58 +140,52 @@ int main(int argc, char **argv)
                 
                 Mixformerer->init(frame, mf_bbox);
             }
-            
+            double timer = (double)getTickCount();  
+    
             // if (trackedMf){
             //     kcftracker.init(frame, bbox);
             //     trackedMf = false;
             // }
 
-            // Start timer for count fps
-            double timer = (double)getTickCount();
+            Mat current_frame_bbox = frame(bbox);
+            Mat current_frame = frame;
 
-            
-            // Mat current_frame_bbox = frame(bbox);
-            // Mat current_frame = frame;
-
-            // uint64_t hashCurrentFrame = calculateAverageHash(current_frame_bbox);
-            // uint64_t hashPreviousFrame = calculateAverageHash(previous_frame_bbox);
-            // int differingBits = __builtin_popcountll(hashCurrentFrame ^ hashPreviousFrame);
-            mf_bbox = Mixformerer->track(frame);
-
-
-            // TODO: when there is no bbox - sample_target() doesn't work = error 
-            bbox.x = int(mf_bbox.box.x0);
-            bbox.y = int(mf_bbox.box.y0);
-            bbox.width = int(mf_bbox.box.x1 - mf_bbox.box.x0);
-            bbox.height = int(mf_bbox.box.y1 - mf_bbox.box.y0);
-            
-            // if (differingBits >= 0) {
-            //     // std::cout << "Frame number: " << frameNumber << std::endl;
-            //     // std::cout << "Switch to MixFormer" << std::endl;
-            //     // std::cout << "Box before MF: " << bbox << std::endl;
+            uint64_t hashCurrentFrame = calculateAverageHash(current_frame_bbox);
+            uint64_t hashPreviousFrame = calculateAverageHash(previous_frame_bbox);
+            int differingBits = __builtin_popcountll(hashCurrentFrame ^ hashPreviousFrame);
+            cout << differingBits << endl;
+            if (differingBits >= 0) {
+            //     std::cout << "Frame number: " << frameNumber << std::endl;
+            //     std::cout << "Switch to MixFormer" << std::endl;
+            //     std::cout << "Box before MF: " << bbox << std::endl;
                 
-            //     mf_bbox = Mixformerer->track(frame);
+                mf_bbox = Mixformerer->track(frame);
                 
-            //     bbox.x = int(mf_bbox.box.x0);
-            //     bbox.y = int(mf_bbox.box.y0);
-            //     bbox.width = int(mf_bbox.box.x1 - mf_bbox.box.x0);
-            //     bbox.height = int(mf_bbox.box.y1 - mf_bbox.box.y0);
-            //     // std::cout << "Switch to KCF" << std::endl;
-            //     // std::cout << "Box after MF: " << bbox << std::endl;
-            //     trackedMf = true;
-            // } 
+                bbox.x = int(mf_bbox.box.x0);
+                bbox.y = int(mf_bbox.box.y0);
+                bbox.width = int(mf_bbox.box.x1 - mf_bbox.box.x0);
+                bbox.height = int(mf_bbox.box.y1 - mf_bbox.box.y0);
+                // std::cout << "Switch to KCF" << std::endl;
+                // std::cout << "Box after MF: " << bbox << std::endl;
+                // trackedMf = true;
+            } 
             // else {
-            //     // Update the tracking result
-            //     bool ok = kcftracker.update(frame, bbox);
+                // Update the tracking result
+            
+                // bool ok = kcftracker.update(frame, bbox);
 
-            //     if (!ok && !trackerInitialized) {
-            //         cout << "KCF tracker initialization failed!" << endl;
-            //         break;
-            //     }
+                // if (!ok && !trackerInitialized) {
+                //     cout << "KCF tracker initialization failed!" << endl;
+                //     break;
+                // }
             // }
 
             // Calculate Frames per second (FPS)
             float fps = getTickFrequency() / ((double)getTickCount() - timer);
+            
+            if (fps < 10){
+                terminateEarly = true;
+            }            
             
             if (ok)
             {
@@ -213,7 +209,15 @@ int main(int argc, char **argv)
             {
                 break;
             }
-            // previous_frame_bbox = frame(bbox).clone();   
+
+            if (bbox.x + bbox.width > frame.size().width){
+                bbox.width = frame.size().width - bbox.x;
+            } else if (bbox.y + bbox.height > frame.size().height){
+                bbox.height = frame.size().height - bbox.y;
+            }
+            
+            previous_frame_bbox = frame(bbox).clone();   
+            
             frameNumber++;
 
             osfile.str("");
@@ -237,9 +241,20 @@ int main(int argc, char **argv)
             frame = cv::imread(osfile.str().c_str(), IMREAD_UNCHANGED);
         } 
 
+        if (terminateEarly)
+        {
+            while (getline(*groundtruth, s))
+            {
+                outputFile << "NaN,NaN,NaN,NaN" << endl;
+                fps_values.push_back(0);
+            }
+            outputFile << "NaN,NaN,NaN,NaN" << endl;
+            fps_values.push_back(0);
+        }
+
         float mean_fps = std::accumulate(fps_values.begin(), fps_values.end(), 0.0) / fps_values.size();
 
-        std::ofstream fps_file("/home/uavlab20/exp_mfkcf/fps/mf_VisDrone_fps_results.txt", std::ios::app); 
+        std::ofstream fps_file("/home/uavlab20/exp_mfkcf/fps/kcf_VisDrone_train-2_fps_results.txt", std::ios::app); 
 
         if (fps_file.is_open())
         {
