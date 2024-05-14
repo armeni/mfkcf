@@ -188,13 +188,15 @@ void KCFTracker::init(const cv::Mat image, const cv::Rect2d &roi)
     _roi.y = int(_roi.y);
     _roi.width = int(_roi.width);
     _roi.height = int(_roi.height);
-
+    
     assert(roi.width >= 0 && roi.height >= 0);
     _tmpl = getFeatures(image, 1);
+    
     _prob = createGaussianPeak(_size_patch[0], _size_patch[1]);
     _alphaf = cv::Mat(_size_patch[0], _size_patch[1], CV_32FC2, float(0));
     //_num = cv::Mat(size_patch[0], size_patch[1], CV_32FC2, float(0));
     //_den = cv::Mat(size_patch[0], size_patch[1], CV_32FC2, float(0));
+   
     train(_tmpl, 1.0); // train with initial frame
 
     if (_dsst)
@@ -580,7 +582,7 @@ cv::Mat KCFTracker::getFeatures(const cv::Mat &image, bool inithann, float scale
     extracted_roi.height = scale_adjust * _scale * _tmpl_sz.height;
     extracted_roi.x = cx - extracted_roi.width / 2;
     extracted_roi.y = cy - extracted_roi.height / 2;
-
+    
     if (extracted_roi.x + extracted_roi.width <= 0)
         extracted_roi.x = -extracted_roi.width + 2;
     if (extracted_roi.y + extracted_roi.height <= 0)

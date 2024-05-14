@@ -230,7 +230,6 @@ const DrOBB &MixformerTRT::track(const cv::Mat &img)
     this->frame_id += 1;
     float resize_factor = 1.f;
     this->sample_target(img, x_patch, this->state, this->cfg.search_factor, this->cfg.search_size, resize_factor);
-
     // preprocess input tensor
     this->transform(this->z_patch, this->oz_patch, x_patch);
     
@@ -348,6 +347,11 @@ void MixformerTRT::sample_target(const cv::Mat &im, cv::Mat &croped, DrBBox targ
         std::cout << "TRACKING FAILURE" << std::endl;
         target_bb.x1++;
     }
+    if (target_bb.y1 - target_bb.y0 == 0){
+        std::cout << "TRACKING FAILURE" << std::endl;
+        target_bb.y1++; 
+    }
+
     int x = target_bb.x0;
     int y = target_bb.y0;
     int w = abs(target_bb.x1 - target_bb.x0);
@@ -371,11 +375,12 @@ void MixformerTRT::sample_target(const cv::Mat &im, cv::Mat &croped, DrBBox targ
     // Crop target
     cv::Rect roi_rect(x1 + x1_pad, y1 + y1_pad, (x2 - x2_pad) - (x1 + x1_pad), (y2 - y2_pad) - (y1 + y1_pad));
     cv::Mat roi = im(roi_rect);
-    // Pad
 
+    // Pad
     cv::copyMakeBorder(roi, croped, y1_pad, y2_pad, x1_pad, x2_pad, cv::BORDER_CONSTANT);
 
     // Resize
     cv::resize(croped, croped, cv::Size(output_sz, output_sz));
+
     resize_factor = output_sz * 1.f / crop_sz;
 }
