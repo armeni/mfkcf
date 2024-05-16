@@ -79,11 +79,12 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
     ifstream *groundtruth;
     ostringstream osfile;
 
-    std::string sequencesDir = "/home/uavlab20/tracking/Datasets/UAV123/sequences/";
+    // std::string sequencesDir = "/home/uavlab20/tracking/Datasets/UAV123/sequences/";
     // std::string sequencesDir = "/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-train-2/sequences/";
     // std::string sequencesDir = "/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-train-1/sequences/";
-    // std::string sequencesDir = "/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-test-dev/sequences/";
-    std::vector<int> mf_num;
+    std::string sequencesDir = "/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-test-dev/sequences/";
+    float percentOfMf = 0;
+    float ss = 0;
     for (const auto & entry : fs::directory_iterator(sequencesDir))
     {
         osfile.str("");
@@ -91,11 +92,11 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
         
         string sequenceName = entry.path().stem().string();
         std::cout << "Sequence name: " << sequenceName << endl; 
-
-        groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/UAV123/anno/UAV123/" + sequenceName + ".txt");
+        ss++;
+        // groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/UAV123/anno/UAV123/" + sequenceName + ".txt");
         // groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-train-2/annotations/" + sequenceName + ".txt");
         // groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-train-1/annotations/" + sequenceName + ".txt");
-        // groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-test-dev/annotations/" + sequenceName + ".txt");
+        groundtruth = new ifstream("/home/uavlab20/tracking/Datasets/VisDrone2019-SOT-test-dev/annotations/" + sequenceName + ".txt");
         
         frameNumber = 1;
         getline(*groundtruth, s, ',');
@@ -103,11 +104,11 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
         getline(*groundtruth, s, ',');
         y = atof(s.c_str());
         getline(*groundtruth, s, ',');
-        w = int(atof(s.c_str()));
+        w = atof(s.c_str());
         getline(*groundtruth, s);
-        h = int(atof(s.c_str()));
-        // osfile << sequencesDir << sequenceName << "/img" << setw(7) << setfill('0') << frameNumber << ".jpg";
-        osfile << sequencesDir << sequenceName << "/" << setw(6) << setfill('0') << frameNumber << ".jpg";
+        h = atof(s.c_str());
+        osfile << sequencesDir << sequenceName << "/img" << setw(7) << setfill('0') << frameNumber << ".jpg";
+        // osfile << sequencesDir << sequenceName << "/" << setw(6) << setfill('0') << frameNumber << ".jpg";
 
         Rect2d bboxGroundtruth(x, y, w, h);
 
@@ -123,7 +124,7 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
 
         cv::Rect2d bbox(int(bboxGroundtruth.x), int(bboxGroundtruth.y), int(bboxGroundtruth.width), int(bboxGroundtruth.height));
 
-        string resultsDir = "/home/uavlab20/exp_mfkcf/mfkcf_results_uav/";
+        string resultsDir = "/home/uavlab20/exp_mfkcf/mfkcf3pr_results_VisDrone/";
         string outputFilePath = resultsDir + sequenceName + ".txt";
 
         // Open output file for writing
@@ -141,24 +142,16 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
         bool ok = false;
         int numberOfMf = 0;
         bool terminateEarly = false;
+        int bits = 0;
 
         while (frame.data && !terminateEarly)
         {
             if(!trackerInitialized){
                 // Initialize tracker with first frame and rect.
-                // std::cout << "Start track init ..." << std::endl;
-                // std::cout << "==========================" << std::endl;
                 kcftracker->init(frame, bbox);
-                tracker->init(frame, rect2mfbbox(bbox));
-                
-                // std::cout << "==========================" << std::endl;
-                // std::cout << "Init done!" << std::endl;
-                // std::cout << std::endl;
+                tracker->init(frame, rect2mfbbox(bbox));   
                 trackerInitialized = true;
             }
-
-            // if (frame.empty())
-            //     break;
 
             // Start timer
             double timer = (double)cv::getTickCount();
@@ -173,21 +166,19 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
             uint64_t hashCurrentFrame = calculateAverageHash(current_frame_bbox);
             uint64_t hashPreviousFrame = calculateAverageHash(previous_frame_bbox);
             int differingBits = __builtin_popcountll(hashCurrentFrame ^ hashPreviousFrame);
-            
+            // bits+=differingBits;
 
-            if (differingBits > 30) {
+            if (differingBits > 10) {
                 // std::cout << "Frame number: " << frameNumber << std::endl;
-                std::cout << "Switch to MixFormer" << std::endl;
-                // std::cout << "Box before MF: " << bbox << std::endl;
+                // std::cout << "Switch to MixFormer" << std::endl;
                 numberOfMf++;
+
                 // Update tracker.
                 bbox = mfbbox2rect(tracker->track(frame));
-
-                // std::cout << "Switch to KCF" << std::endl;
-                // std::cout << "Box after MF: " << rect << std::endl;
+                
                 trackedMf = true;
             } else {
-                // Update the tracking result
+                // Update the tracking result by KCF
                 ok = kcftracker->update(frame, bbox);
                 if (!ok && !trackerInitialized) {
                     std::cout << "KCF tracker initialization failed!" << std::endl;
@@ -198,19 +189,26 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
             // Calculate Frames per second (FPS)
             float fps = cv::getTickFrequency() / ((double)cv::getTickCount() - timer);
 
-            if (fps < 10){
+            if (fps < 5){
                 terminateEarly = true;
+                int file_count = 0;
+                for (const auto& entry : fs::directory_iterator(sequencesDir + sequenceName)) {
+                    if (entry.is_regular_file()) {
+                        ++file_count;
+                    }
+                }
+                fps_values.insert(fps_values.end(), file_count - frameNumber, 0.0f);
+
             }            
             
             // Boundary judgment.
-            if (ok)
-            {
-                cv::rectangle(frame, bbox, cv::Scalar(0, 255, 0), 2, 1);
-                outputFile << int(bbox.x) << "," << int(bbox.y) << "," << int(bbox.width) << "," << int(bbox.height) << std::endl;
-            } else {
-                outputFile << "NaN,NaN,NaN,NaN" << std::endl;
-                putText(frame, "Tracking failure detected", Point(100,80), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
-            }
+            // if (ok){
+            cv::rectangle(frame, bbox, cv::Scalar(0, 255, 0), 2, 1);
+            outputFile << int(bbox.x) << "," << int(bbox.y) << "," << int(bbox.width) << "," << int(bbox.height) << std::endl;
+            // } else {
+            //     outputFile << "NaN,NaN,NaN,NaN" << std::endl;
+            //     putText(frame, "Tracking failure detected", Point(100,80), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
+            // }
 
             // Display FPS on frame
             putText(frame, "FPS: " + SSTR(int(fps)), Point(100,50), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(170,50,50), 2);
@@ -237,9 +235,9 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
             if (bbox.width < 4){
                 bbox.width = 4;
             }
-            if (bbox.width / bbox.height > 8){
-                bbox.width /= 2;
-            }
+            // if (bbox.width / bbox.height > 8){
+            //     bbox.width /= 2;
+            // }
             if (bbox.x + bbox.width > frame.size().width){
                 bbox.width = frame.size().width - bbox.x;
             } 
@@ -248,28 +246,21 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
             }
             
             frameNumber++;
-            previous_frame_bbox = frame(bbox).clone();   
 
+            if ((frameNumber - 1) % 3 ==0){
+                previous_frame_bbox = frame(bbox).clone();   
+            }
             fps_values.push_back(fps);
             osfile.str("");
-            // osfile << sequencesDir << sequenceName << "/img" << setw(7) << setfill('0') << frameNumber << ".jpg";
-            osfile << sequencesDir << sequenceName << "/" << setw(6) << setfill('0') << frameNumber << ".jpg";
+            osfile << sequencesDir << sequenceName << "/img" << setw(7) << setfill('0') << frameNumber << ".jpg";
+            // osfile << sequencesDir << sequenceName << "/" << setw(6) << setfill('0') << frameNumber << ".jpg";
 
             frame = cv::imread(osfile.str().c_str(), IMREAD_UNCHANGED);
         }
-        if (terminateEarly)
-        {
-            while (getline(*groundtruth, s))
-            {
-                outputFile << "NaN,NaN,NaN,NaN" << endl;
-                fps_values.push_back(0);
-            }
-            outputFile << "NaN,NaN,NaN,NaN" << endl;
-            fps_values.push_back(0);
-        }
+
         float mean_fps = std::accumulate(fps_values.begin(), fps_values.end(), 0.0) / fps_values.size();
 
-        std::ofstream fps_file("/home/uavlab20/exp_mfkcf/fps/mfkcf_uav_fps_results.txt", std::ios::app); 
+        std::ofstream fps_file("/home/uavlab20/exp_mfkcf/fps/mfkcf3pr_VisDrone_fps_results.txt", std::ios::app); 
 
         if (fps_file.is_open())
         {
@@ -280,11 +271,10 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker)
         {
             cerr << "Unable to open fps_results file for writing." << endl;
         }
-        mf_num.push_back(numberOfMf / frameNumber);
+        percentOfMf += float(numberOfMf) / float(frameNumber - 1);
+        cout << percentOfMf / ss << endl;
         outputFile.close();
     }
-    float mean_mf = std::accumulate(mf_num.begin(), mf_num.end(), 0.0) / mf_num.size();
-    std::cout << "Average percentage of switches to MixFormer: " << mean_mf << endl;
 }
 
 
