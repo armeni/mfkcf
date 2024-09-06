@@ -25,3 +25,4 @@ You can read more about the algorithm and results in the paper: *Sardaryan A., S
 2. cmake ..
 3. make
 4. ./tracker [modelPath] [bitsThreshold] [sequencesDir] [annotationsDir] [resultsDir] [fpsFile] 2>nul
+5. You can run the GUI version for easy file and folder selection. Just run `python3.8 gui.py` after 3rd step.
