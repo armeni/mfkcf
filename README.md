@@ -1,6 +1,6 @@
 # Hybrid Tracking Method (MixFormerV2 x KCF)
 
-- The algorithm uses a switch mechanism between two trackers: a fast Correlation Filter (KCF) and an accurate Visual Transformer (MixFormerV2), balancing tracking speed and quality.
+The algorithm uses a switch mechanism between two trackers: a fast Correlation Filter (KCF) and an accurate Visual Transformer (MixFormerV2), balancing tracking speed and quality.
 
 ### Overview
 
@@ -17,7 +17,8 @@
 - Experiments have shown that the proposed algorithm can indeed significantly improve the tracking speed relative to current state-of-the-art models without significant loss of quality. 
 - On the UAV123 and VisDrone-SOT datasets, it achieved a **59% and 119% speedup** respectively with only a **2-3% decrease in accuracy** compared to MixFormerV2 (experiments were conducted on Jetson Orin).
 
-You can read more about the algorithm and results in the paper `Sardaryan A., Sahakyan V., Melkonyan V., Sargsyan S. An Accurate Real-Time Object Tracking Method for Resource-Constrained Devices, Trudy ISP RAN/Proc. ISP RAS, vol. 36, issue 3, 2024. pp. 283-294 (in Russian). DOI: 10.15514/ISPRAS-2024-36(3)-20.`
+You can read more about the algorithm and results in the paper:
+`Sardaryan A., Sahakyan V., Melkonyan V., Sargsyan S. An Accurate Real-Time Object Tracking Method for Resource-Constrained Devices, Trudy ISP RAN/Proc. ISP RAS, vol. 36, issue 3, 2024. pp. 283-294 (in Russian). DOI: 10.15514/ISPRAS-2024-36(3)-20.`
 
 ### Run the code
 
