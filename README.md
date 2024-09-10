@@ -21,8 +21,10 @@ You can read more about the algorithm and results in the paper: *Sardaryan A., S
 
 ### Run the code
 
-1. mkdir build && cd build
-2. cmake ..
-3. make
-4. ./tracker [modelPath] [bitsThreshold] [sequencesDir] [annotationsDir] [resultsDir] [fpsFile] 2>nul
-5. You can run the GUI version for easy file and folder selection. Just run `python3.8 gui.py` after 3rd step.
+This version is designed to run the tracker on the video received from the camera.
+
+1. connect the camera through usb (`/dev/video0`)
+2. mkdir build && cd build
+3. cmake ..
+4. make
+5. ./tracker [modelPath] [bitsThreshold] 2>nul

@@ -10,31 +10,61 @@ using namespace std;
 using namespace cv;
 using namespace kcf;
 
+Rect2d bbox;
+bool bboxSelected = false;
+bool drawing = false;
+Point point1, point2;
+bool trackerInitialized = false; 
 
 
-Rect2d selectObject(Mat& frame)
+/**
+ * @brief Mouse callback function for selecting and drawing a bounding box on the frame.
+ * 
+ * This function allows users to select a bounding box (bbox) for tracking by clicking and dragging the mouse
+ * over the video fram  e. The user can re-select a new bbox by clicking again.
+ * 
+ * @param event Type of the mouse event (e.g., left button down, mouse move).
+ * @param x The current x-coordinate of the mouse pointer.
+ * @param y The current y-coordinate of the mouse pointer.
+ * @param flags Additional flags for the event (unused in this function).
+ * @param userdata Pointer to the current video frame (cast to Mat*).
+ */
+void mouseCallback(int event, int x, int y, int, void* userdata)
 {
-    // Use OpenCV's selectROI function to let the user select the object
-    Rect2d bbox = selectROI("Select Object", frame, false, false);
+    Mat& frame = *(Mat*)userdata;
 
-    if (bbox.width == 0 || bbox.height == 0) {
-        cerr << "Error: No object selected." << endl;
-        return Rect2d(); // Return an empty rectangle
+    if (event == EVENT_LBUTTONDOWN) {
+        point1 = Point(x, y);
+        drawing = true;
     }
+    else if (event == EVENT_MOUSEMOVE && drawing) {
+        point2 = Point(x, y);
+        Mat tempFrame = frame.clone();
+        rectangle(tempFrame, point1, point2, Scalar(255, 0, 0), 2);
+        imshow("Tracking", tempFrame);
+    }
+    else if (event == EVENT_LBUTTONUP) {
+        point2 = Point(x, y);
+        drawing = false;
 
-    // Optionally, draw the rectangle on the frame to show the selection
-    rectangle(frame, bbox, Scalar(255, 0, 0), 2, 1);
-    imshow("Select Object", frame);
-    waitKey(0); // Wait for user to press any key after selection
-
-    return bbox;
+        if (abs(point1.x - point2.x) < 10 && abs(point1.y - point2.y) < 10) {
+            bbox = Rect2d();   
+            bboxSelected = false; 
+            trackerInitialized = false;
+        }
+        else{
+            bbox = Rect2d(point1, point2);
+            bboxSelected = true;
+            trackerInitialized = false; 
+        }
+    }
 }
 
 
-void track(MixformerTRT *tracker, KCFTracker *kcftracker, int bitsThreshold, const std::string& resultsFile, const std::string& fpsFile)
+void track(MixformerTRT *tracker, KCFTracker *kcftracker, int bitsThreshold)
 {
     // Open the default camera (index 0). Change index if necessary.
-    VideoCapture cap(0); 
+    VideoCapture cap(0);  
 
     if (!cap.isOpened()) {
         cerr << "Error: Unable to open camera." << endl;
@@ -43,8 +73,6 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker, int bitsThreshold, con
 
     Mat frame;
     Mat previousFrameBbox; // Variable to store the previous frame
-    Rect2d bbox;
-    bool trackerInitialized = false;
     bool mfTracked = false;
     bool ok = false;
     bool terminateEarly = false;
@@ -52,23 +80,9 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker, int bitsThreshold, con
 
     int frameNumber = 0;
     float mixformerTriggers = 0;
-    float sequenceCount = 1; // Fixed value for a real-time stream
 
-    ofstream outputFile(resultsFile);
-    if (!outputFile.is_open()) {
-        cerr << "Error: Could not create output file." << endl;
-        return;
-    }
-
-    // Skip initial frames
-    int startFrameNumber = 2;
-    for (int i = 0; i < startFrameNumber; ++i) {
-        cap >> frame;
-        if (frame.empty()) {
-            cerr << "Error: Empty frame captured during frame skipping." << endl;
-            return;
-        }
-    }
+    namedWindow("Tracking");
+    setMouseCallback("Tracking", mouseCallback, &frame); 
 
     while (!terminateEarly) {
         // Capture a frame from the camera
@@ -78,65 +92,52 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker, int bitsThreshold, con
             break;
         }
 
-        // Debug log frame number and size
-        std::cout << "Processing frame: " << frameNumber << ", Size: " << frame.size() << std::endl;
-
-        // Check if we are on frame 200
-        if (frameNumber == 200) {
-            std::cout << "Debug: Captured frame 200" << std::endl;
-            imwrite("frame_200.jpg", frame); // Save the frame for inspection
-        }
-        // Initialize the tracker with the first frame and bounding box
-        if (!trackerInitialized) {
-            bbox = selectObject(frame); 
-            if (bbox.width == 0 || bbox.height == 0) {
-                cerr << "Error: No valid bounding box selected." << endl;
-                return;
-            }
+        // If the object is selected or reselected, initialize the trackers
+        if (bboxSelected && !trackerInitialized) {
             kcftracker->init(frame, bbox);
             tracker->init(frame, rect2mfbbox(bbox));
-            previousFrameBbox = frame(bbox).clone(); // Initialize previous frame
+            previousFrameBbox = frame(bbox).clone(); 
             trackerInitialized = true;
-            continue; // Skip the rest of the loop
         }
 
-        // Check if the bounding box is within frame boundaries
-        if (bbox.x < 0 || bbox.y < 0 || bbox.x + bbox.width > frame.cols || bbox.y + bbox.height > frame.rows) {
-            cerr << "Error: Bounding box is out of frame boundaries." << endl;
-            continue; // Skip this frame
+        // If the trackers are initialized, start tracking
+        if (trackerInitialized) {
+            double timer = (double)cv::getTickCount();
+
+            // reinitialize KCF tracker after MixFormer tracking step
+            if (mfTracked){
+                kcftracker->init(frame, bbox);
+                mfTracked = false;
+            }
+
+            Mat currentFrameBbox = frame(bbox);
+            uint64_t hashCurrentFrame = calculateAverageHash(currentFrameBbox);
+            uint64_t hashPreviousFrame = calculateAverageHash(previousFrameBbox);
+            // Compute the XOR between the current and previous frame hashes to сount the number of bits that have changed
+            int differingBits = __builtin_popcountll(hashCurrentFrame ^ hashPreviousFrame);
+
+            if (differingBits >= bitsThreshold) {
+                mixformerTriggers++;
+                bbox = mfbbox2rect(tracker->track(frame));
+                mfTracked = true;
+                ok = true;
+            } else {
+                ok = kcftracker->update(frame, bbox);
+            }
+
+            float fps = cv::getTickFrequency() / ((double)cv::getTickCount() - timer);
+            fpsValues.push_back(fps);
+
+            if (ok) {
+                rectangle(frame, bbox, Scalar(0, 255, 0), 2, 1);
+            } else {
+                putText(frame, "Tracking failure detected", Point(100, 80), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0, 0, 255), 2);
+            }
+
+            putText(frame, "FPS: " + std::to_string(int(fps)), Point(100, 50), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(170, 50, 50), 2);
+            frameNumber++;
         }
 
-        // Start timer for FPS calculation
-        double timer = (double)cv::getTickCount();
-
-        // Check if we need to switch to MixFormer
-        Mat currentFrameBbox = frame(bbox);
-        uint64_t hashCurrentFrame = calculateAverageHash(currentFrameBbox);
-        uint64_t hashPreviousFrame = calculateAverageHash(previousFrameBbox);
-        int differingBits = __builtin_popcountll(hashCurrentFrame ^ hashPreviousFrame);
-
-        if (differingBits >= bitsThreshold) {
-            mixformerTriggers++;
-            bbox = mfbbox2rect(tracker->track(frame));
-            mfTracked = true;
-            ok = true;
-        } else {
-            ok = kcftracker->update(frame, bbox);
-        }
-
-        // Calculate FPS
-        float fps = cv::getTickFrequency() / ((double)cv::getTickCount() - timer);
-
-        // Display results on the frame
-        if (ok) {
-            rectangle(frame, bbox, Scalar(0, 255, 0), 2, 1);
-            outputFile << int(bbox.x) << "," << int(bbox.y) << "," << int(bbox.width) << "," << int(bbox.height) << std::endl;
-        } else {
-            outputFile << "NaN, NaN, NaN, NaN" << std::endl;
-            putText(frame, "Tracking failure detected", Point(100,80), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0,0,255),2);
-        }
-
-        putText(frame, "FPS: " + std::to_string(int(fps)), Point(100, 50), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(170, 50, 50), 2);
         imshow("Tracking", frame);
 
         if (waitKey(1) == 'q') {
@@ -157,46 +158,32 @@ void track(MixformerTRT *tracker, KCFTracker *kcftracker, int bitsThreshold, con
             bbox.height = frame.size().height - bbox.y;
         }
 
-        frameNumber++;
-        fpsValues.push_back(fps);
-        previousFrameBbox = frame(bbox).clone();
+        previousFrameBbox = frame(bbox).clone(); // remember this bbox for differingBits calculation on the next frame   
     }
 
     float meanFps = std::accumulate(fpsValues.begin(), fpsValues.end(), 0.0) / fpsValues.size();
-    std::ofstream fps(fpsFile, std::ios::app);
-    if (fps.is_open()) {
-        fps << "Camera, " << meanFps << "\n";
-        fps.close();
-    } else {
-        cerr << "Unable to open fps_results file for writing." << endl;
-    }
 
-    outputFile.close();
-    cout << "Average MixFormer trigger rate: " << mixformerTriggers / (frameNumber - 1) << endl;
+    std::cout << "Average MixFormer trigger rate: " << mixformerTriggers / frameNumber * 100 << "%" << std::endl;
+    std::cout << "Average FPS during tracking: " << meanFps << std::endl;
+    
 }
-
 
 int main(int argc, char** argv)
 {
-    if (argc != 5)
-    {
-        fprintf(stderr, "Usage: %s [modelPath] [bitsThreshold] [resultsDir] [fpsFile]\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s [modelPath] [bitsThreshold]\n", argv[0]);
         return -1;
     }
 
     std::string modelPath = argv[1];
     int bitsThreshold = std::stoi(argv[2]);
-    std::string resultsFile = argv[3];
-    std::string fpsFile = argv[4];
 
-    MixformerTRT *Mixformerer;
-    Mixformerer = new MixformerTRT(modelPath);
+    MixformerTRT *Mixformerer = new MixformerTRT(modelPath);
 
     bool HOG = true, FIXEDWINDOW = true, MULTISCALE = true, LAB = true, DSST = false;
-    KCFTracker *kcftracker;
-    kcftracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
+    KCFTracker *kcftracker = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB, DSST);
 
-    track(Mixformerer, kcftracker, bitsThreshold, resultsFile, fpsFile);
+    track(Mixformerer, kcftracker, bitsThreshold);
 
     return 0;
 }
