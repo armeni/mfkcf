@@ -6,7 +6,7 @@ option(USE_CUDA "enable ONNXRuntime engine with CUDA provider" ON)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
 set(CMAKE_CXX_FLAGS "-fPIC -std=c++17")
-set(CMAKE_C_FLAGS "-fPIC -std=c11  -O3 -mavx512f")
+set(CMAKE_C_FLAGS "-fPIC -std=c11  -O3") # -mavx512f
 set(CMAKE_BUILD_TYPE "Release")
 project(mixformer-kcf)
 
