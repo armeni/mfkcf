@@ -23,8 +23,10 @@ You can read more about the algorithm and results in the paper: *Sardaryan A., S
 
 This version is designed to run the tracker on the video received from the camera.
 
-1. connect the camera through usb (`/dev/video0`)
-2. mkdir build && cd build
-3. cmake ..
-4. make
-5. ./tracker [modelPath] [bitsThreshold] 2>nul
+1. set paths in CmakeLists.txt
+2. translate model from onnx format to engine: `/usr/src/tensorrt/bin/trtexec --onnx=onnx_model_path --saveEngine=save_engine_model_path`
+3. connect the camera through usb (`/dev/video0`)
+4. mkdir build && cd build
+5. cmake ..
+6. make
+7. ./tracker [modelPath] [bitsThreshold] 2>nul
