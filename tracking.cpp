@@ -33,12 +33,12 @@ public:
                 first_box[3] - first_box[1]
             };
 
-            cv::Rect2f rect(cfg[0], cfg[1], cfg[2], cfg[3]);
+            bbox = cv::Rect2f(cfg[0], cfg[1], cfg[2], cfg[3]);
             
-            tracker->init(img, rect2mfbbox(rect));
-            kcftracker->init(img, rect);
-            previousFrameBbox = img(rect);
-
+            tracker->init(img, rect2mfbbox(bbox));
+            kcftracker->init(img, bbox);
+            previousFrameBbox = img(bbox);
+            
             return {first_box[0], first_box[1], first_box[2], first_box[3]}; 
         } else {
             // reinitialize KCF tracker after MixFormer tracking step
@@ -46,13 +46,13 @@ public:
                 kcftracker->init(img, bbox);
                 mfTracked = false;
             }
-
+            
             Mat currentFrameBbox = img(bbox);
             uint64_t hashCurrentFrame = calculateAverageHash(currentFrameBbox);
             uint64_t hashPreviousFrame = calculateAverageHash(previousFrameBbox);
             // Compute the XOR between the current and previous frame hashes to сount the number of bits that have changed
             int differingBits = __builtin_popcountll(hashCurrentFrame ^ hashPreviousFrame);
-
+            
             if (differingBits >= 5) {
                 bbox = mfbbox2rect(tracker->track(img));
                 mfTracked = true;
