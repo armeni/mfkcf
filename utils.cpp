@@ -5,8 +5,8 @@
 using namespace cv;
 
 
-cv::Rect2d mfbbox2rect(DrOBB mf_bbox){
-    cv::Rect2d bbox;
+cv::Rect2f mfbbox2rect(DrOBB mf_bbox){
+    cv::Rect2f bbox;
     bbox.x = int(mf_bbox.box.x0);
     bbox.y = int(mf_bbox.box.y0);
     bbox.width = int(mf_bbox.box.x1 - mf_bbox.box.x0);
@@ -16,7 +16,7 @@ cv::Rect2d mfbbox2rect(DrOBB mf_bbox){
 }
 
 
-DrOBB rect2mfbbox(Rect2d bbox){
+DrOBB rect2mfbbox(Rect2f bbox){
     DrOBB mf_bbox;
     mf_bbox.box.x0 = bbox.x;
     mf_bbox.box.x1 = bbox.x+bbox.width;

@@ -7,6 +7,6 @@
 #define SSTR( x ) static_cast< std::ostringstream & >( \
 ( std::ostringstream() << std::dec << x ) ).str()
 
-cv::Rect2d mfbbox2rect(DrOBB mf_bbox);
-DrOBB rect2mfbbox(cv::Rect2d bbox);
+cv::Rect2f mfbbox2rect(DrOBB mf_bbox);
+DrOBB rect2mfbbox(cv::Rect2f bbox);
 uint64_t calculateAverageHash(const cv::Mat& roi);

@@ -96,11 +96,11 @@ public:
     KCFTracker(bool hog = true, bool fixed_window = true, bool multiscale = true, bool lab = true, bool dsst = false);
 
     // Initialize tracker 
-    void init( const cv::Mat image, const cv::Rect2d& roi);
+    void init( const cv::Mat image, const cv::Rect2f& roi);
     
     // Update position based on the new frame
     //cv::Rect update(cv::Mat image);
-    bool update( const cv::Mat image, cv::Rect2d& roi);
+    std::vector<float> update( const cv::Mat image, cv::Rect2f& roi);
 
     float detect_thresh_kcf; // thresh hold for tracking error or not
     float sigma; // gaussian kernel bandwidth
@@ -134,7 +134,7 @@ public:
 //===========
 
 protected:
-    bool update_kcf( const cv::Mat image, cv::Rect2d& roi);
+    std::vector<float> update_kcf( const cv::Mat image, cv::Rect2f& roi);
     // Detect object in the current frame.
     cv::Point2f detect(cv::Mat z, cv::Mat x, float &peak_value); // paper Algorithm 1 , _alpha updated in train();
 
@@ -158,9 +158,9 @@ protected:
 
 //=====dsst====
     // Initialization for scales
-    void init_dsst(const cv::Mat image, const cv::Rect2d& roi);
+    void init_dsst(const cv::Mat image, const cv::Rect2f& roi);
 
-    bool update_dsst( const cv::Mat image, cv::Rect2d& roi);
+    bool update_dsst( const cv::Mat image, cv::Rect2f& roi);
     // Detect the new scaling rate
     cv::Point2i detect_dsst(cv::Mat image);
 

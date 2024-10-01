@@ -181,7 +181,7 @@ KCFTracker::KCFTracker(bool hog, bool fixed_window, bool multiscale, bool lab, b
     }
 }
 // Initialize tracker
-void KCFTracker::init(const cv::Mat image, const cv::Rect2d &roi)
+void KCFTracker::init(const cv::Mat image, const cv::Rect2f &roi)
 {
     _roi = roi;
     _roi.x = int(_roi.x);
@@ -206,19 +206,19 @@ void KCFTracker::init(const cv::Mat image, const cv::Rect2d &roi)
     }
 }
 // Update position based on the new frame
-bool KCFTracker::update(const cv::Mat image, cv::Rect2d &roi)
+std::vector<float> KCFTracker::update(const cv::Mat image, cv::Rect2f &roi)
 {
-    if (_dsst)
-    {
-        return update_dsst(image, roi);
-    }
-    else
-    {
-        return update_kcf(image, roi);
-    }
+    // if (_dsst)
+    // {
+    //     return update_dsst(image, roi);
+    // }
+    // else
+    // {
+    return update_kcf(image, roi);
+    // }
 }
 
-bool KCFTracker::update_kcf(const cv::Mat image, cv::Rect2d &roi)
+std::vector<float> KCFTracker::update_kcf(const cv::Mat image, cv::Rect2f &roi)
 {
     if (_roi.x + _roi.width <= 0)
         _roi.x = -_roi.width + 1; //let _roi.x + _roi.width = 1
@@ -286,20 +286,20 @@ bool KCFTracker::update_kcf(const cv::Mat image, cv::Rect2d &roi)
         train(getFeatures(image, 0), interp_factor);
         
         roi = _roi;
-        roi.x = int(roi.x);
-        roi.y = int(roi.y);
-        roi.width = int(roi.width);
-        roi.height = int(roi.height);
+        // roi.x = static_cast<float>(roi.x);
+        // roi.y = static_cast<float>(roi.y);
+        // roi.width = static_cast<float>(roi.width);
+        // roi.height = static_cast<float>(roi.height);
 
-        return true;
+        return {roi.x, roi.y, roi.width, roi.height};
     }
     else
     {
-        return false;
+        return {};
     }
 }
 
-bool KCFTracker::update_dsst(const cv::Mat image, cv::Rect2d &roi)
+bool KCFTracker::update_dsst(const cv::Mat image, cv::Rect2f &roi)
 {
     if (_roi.x + _roi.width <= 0)
         _roi.x = -_roi.width + 1; //let _roi.x + _roi.width = 1
@@ -740,7 +740,7 @@ float KCFTracker::subPixelPeak(float left, float center, float right)
 }
 //DSST=========================================================================================
 // Initialization for scales
-void KCFTracker::init_dsst(const cv::Mat image, const cv::Rect2d &roi)
+void KCFTracker::init_dsst(const cv::Mat image, const cv::Rect2f &roi)
 {
     // The initial size for adjusting
     base_width_dsst = roi.width;

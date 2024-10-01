@@ -10,10 +10,18 @@ set(CMAKE_C_FLAGS "-fPIC -std=c11  -O3") # -mavx512f
 set(CMAKE_BUILD_TYPE "Release")
 project(mixformer-kcf)
 
+include(FetchContent)
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG v2.11.1
+)
+FetchContent_MakeAvailable(pybind11)
+
 set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-12.0)
 find_package(CUDA REQUIRED)
-
-
+find_package(PythonInterp 3.8 REQUIRED)
+find_package(PythonLibs 3.8 REQUIRED)
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
   message("--embedded platform on")
 
@@ -43,5 +51,34 @@ include_directories(/home/uavlab20/onnxruntime)
 
 link_directories(/usr/lib/x86_64-linux-gnu /home/uavlab20/onnxruntime/build/Linux/Release)
 
-add_executable(tracker tracking.cpp utils.cpp mixformer/mixformer_trt.cpp mixformer/logging.h mixformer/half.hpp kcf/kcftracker.cpp kcf/kcftracker.hpp kcf/fhog.hpp kcf/fhog.cpp kcf/ffttools.hpp kcf/labdata.hpp)
-target_link_libraries(tracker nvinfer cudart libopencv_core.so libopencv_highgui.so libopencv_imgproc.so libopencv_video.so libopencv_videoio.so libopencv_imgcodecs.so)
+add_library(tracker_module MODULE
+    tracking.cpp
+    utils.cpp
+    mixformer/mixformer_trt.cpp
+    mixformer/logging.h
+    mixformer/half.hpp
+    kcf/kcftracker.cpp
+    kcf/kcftracker.hpp
+    kcf/fhog.hpp
+    kcf/fhog.cpp
+    kcf/ffttools.hpp
+    kcf/labdata.hpp
+)
+
+target_link_libraries(tracker_module PRIVATE
+    nvinfer
+    cudart
+    libopencv_core.so
+    libopencv_highgui.so
+    libopencv_imgproc.so
+    libopencv_video.so
+    libopencv_videoio.so
+    libopencv_imgcodecs.so
+)
+
+target_link_libraries(tracker_module PRIVATE pybind11::module)
+
+set_target_properties(tracker_module PROPERTIES
+    PREFIX ""
+    SUFFIX ".so"
+)
