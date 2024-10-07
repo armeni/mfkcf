@@ -206,7 +206,7 @@ void KCFTracker::init(const cv::Mat image, const cv::Rect2f &roi)
     }
 }
 // Update position based on the new frame
-std::vector<float> KCFTracker::update(const cv::Mat image, cv::Rect2f &roi)
+cv::Rect2f KCFTracker::update(const cv::Mat image, cv::Rect2f &roi)
 {
     // if (_dsst)
     // {
@@ -218,7 +218,7 @@ std::vector<float> KCFTracker::update(const cv::Mat image, cv::Rect2f &roi)
     // }
 }
 
-std::vector<float> KCFTracker::update_kcf(const cv::Mat image, cv::Rect2f &roi)
+cv::Rect2f KCFTracker::update_kcf(const cv::Mat image, cv::Rect2f &roi)
 {
     if (_roi.x + _roi.width <= 0)
         _roi.x = -_roi.width + 1; //let _roi.x + _roi.width = 1
@@ -291,11 +291,10 @@ std::vector<float> KCFTracker::update_kcf(const cv::Mat image, cv::Rect2f &roi)
         // roi.width = static_cast<float>(roi.width);
         // roi.height = static_cast<float>(roi.height);
 
-        return {roi.x, roi.y, roi.width, roi.height};
+        return roi;
     }
-    else
-    {
-        return {};
+    else {
+        return roi;
     }
 }
 

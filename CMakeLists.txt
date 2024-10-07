@@ -18,16 +18,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11)
 
-set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-12.0)
+set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-12.2)
 find_package(CUDA REQUIRED)
-find_package(PythonInterp 3.8 REQUIRED)
-find_package(PythonLibs 3.8 REQUIRED)
+find_package(PythonInterp 3.10 REQUIRED)
+find_package(PythonLibs 3.10 REQUIRED)
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
   message("--embedded platform on")
 
   # cuda
-  include_directories(/usr/local/cuda-12.0/targets/aarch64-linux/include)
-  link_directories(/usr/local/cuda-12.0/targets/aarch64-linux/lib)
+  include_directories(/usr/local/cuda-12.2/targets/aarch64-linux/include)
+  link_directories(/usr/local/cuda-12.2/targets/aarch64-linux/lib)
 
   # tensorrt
   include_directories(/usr/include/aarch64-linux-gnu)
@@ -49,7 +49,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 include_directories(/usr/include/opencv4)
 include_directories(/home/uavlab20/onnxruntime)
 
-link_directories(/usr/lib/x86_64-linux-gnu /home/uavlab20/onnxruntime/build/Linux/Release)
+link_directories(/usr/lib/aarch64-linux-gnu) # /home/orin/onnxruntime/build/Linux/Release
 
 add_library(tracker_module MODULE
     tracking.cpp

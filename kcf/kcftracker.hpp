@@ -100,7 +100,7 @@ public:
     
     // Update position based on the new frame
     //cv::Rect update(cv::Mat image);
-    std::vector<float> update( const cv::Mat image, cv::Rect2f& roi);
+    cv::Rect2f update( const cv::Mat image, cv::Rect2f& roi);
 
     float detect_thresh_kcf; // thresh hold for tracking error or not
     float sigma; // gaussian kernel bandwidth
@@ -134,7 +134,7 @@ public:
 //===========
 
 protected:
-    std::vector<float> update_kcf( const cv::Mat image, cv::Rect2f& roi);
+    cv::Rect2f update_kcf( const cv::Mat image, cv::Rect2f& roi);
     // Detect object in the current frame.
     cv::Point2f detect(cv::Mat z, cv::Mat x, float &peak_value); // paper Algorithm 1 , _alpha updated in train();
 
