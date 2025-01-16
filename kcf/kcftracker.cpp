@@ -191,7 +191,6 @@ void KCFTracker::init(const cv::Mat image, const cv::Rect2f &roi)
     
     assert(roi.width >= 0 && roi.height >= 0);
     _tmpl = getFeatures(image, 1);
-    
     _prob = createGaussianPeak(_size_patch[0], _size_patch[1]);
     _alphaf = cv::Mat(_size_patch[0], _size_patch[1], CV_32FC2, float(0));
     //_num = cv::Mat(size_patch[0], size_patch[1], CV_32FC2, float(0));
@@ -531,14 +530,12 @@ cv::Mat KCFTracker::getFeatures(const cv::Mat &image, bool inithann, float scale
     {
         int padded_w = _roi.width * padding;
         int padded_h = _roi.height * padding;
-
         if (template_size > 1)
         {                             // Fit largest dimension to the given template size
             if (padded_w >= padded_h) //fit to width
                 _scale = padded_w / (float)template_size;
             else
                 _scale = padded_h / (float)template_size;
-
             _tmpl_sz.width = padded_w / _scale;
             _tmpl_sz.height = padded_h / _scale;
         }
@@ -549,7 +546,7 @@ cv::Mat KCFTracker::getFeatures(const cv::Mat &image, bool inithann, float scale
             _scale = 1;
             // original code from paper:
             // std::cout << "Width: " << padded_w << ", Height: " << padded_h << ", Root Square: " << sqrt(padded_w * padded_h) << std::endl;
-            if (sqrt(padded_w * padded_h) <= 100) {   //Normal size
+            if (sqrt(padded_w * padded_h) <= 1000) {   //Normal size
                 _tmpl_sz.width = padded_w;
                 _tmpl_sz.height = padded_h;
                 _scale = 1;

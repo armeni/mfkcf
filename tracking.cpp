@@ -17,6 +17,8 @@ namespace py = pybind11;
 
 class TrackerMain {
 public:
+    TrackerMain() : threshold(5) {}
+    TrackerMain(int threshold) : threshold(threshold) {}
     void init() {
         freopen("log.txt", "w", stderr);
         std::string modelPath = "/home/orin2/mfkcf/models/mixformer_v2.engine";
@@ -44,7 +46,7 @@ public:
             return {first_box[0], first_box[1], first_box[2], first_box[3]}; 
         } else {
             // reinitialize KCF tracker after MixFormer tracking step
-            if (mfTracked){
+            if (mfTracked && threshold > 0){
                 kcftracker->init(img, bbox);
                 mfTracked = false;
             }
@@ -55,7 +57,7 @@ public:
             // Compute the XOR between the current and previous frame hashes to сount the number of bits that have changed
             int differingBits = __builtin_popcountll(hashCurrentFrame ^ hashPreviousFrame);
             
-            if (differingBits >= 5) {
+            if (differingBits >= threshold) {
                 bbox = mfbbox2rect(tracker->track(img));
                 mfTracked = true;
             } else {
@@ -93,6 +95,7 @@ private:
     cv::Mat previousFrameBbox;
     cv::Mat img;
     cv::Rect2f bbox;
+    int threshold; 
 };
 
 
@@ -110,6 +113,7 @@ cv::Mat numpy_to_cv_mat(py::array_t<uint8_t> img) {
 PYBIND11_MODULE(tracker_module, m) {
     py::class_<TrackerMain>(m, "TrackerMain")
         .def(py::init<>())
+        .def(py::init<int>(), py::arg("threshold"))
         .def("init", &TrackerMain::init)
         .def("track", [](TrackerMain& self, py::array_t<uint8_t> img, bool is_first, std::vector<int> first_box) {
             cv::Mat image_cv = numpy_to_cv_mat(img); 

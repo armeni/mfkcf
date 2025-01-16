@@ -47,7 +47,7 @@ endif()
 
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(/usr/include/opencv4)
-include_directories(/home/uavlab20/onnxruntime)
+# include_directories(/home/uavlab20/onnxruntime)
 
 link_directories(/usr/lib/aarch64-linux-gnu) # /home/orin/onnxruntime/build/Linux/Release
 
